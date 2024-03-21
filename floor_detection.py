@@ -89,7 +89,21 @@ clf.fit(X_train, y_train)
 print("The SVM was trained. \n")
 y_pred = clf.predict(X_test)
 print(f"The accuracy score of the SVM on the test data is {np.round(accuracy_score(y_test, y_pred),3)}")
+# Print support vectors
+print(f"Kernel was: {clf.kernel}")
+print("Support Vectors:")
+print(clf.support_vectors_.shape)
 
+
+# Print bias term
+print("\nBias Term:")
+print(clf.intercept_.shape)
+
+# print normal to decision boundary:
+print("\n Normal vecotr: ")
+print(clf.coef_[0])
+
+raise
 SAVE_CLF = False
 if SAVE_CLF:
     with open('svm_V1.pkl', 'wb') as f:
