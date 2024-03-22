@@ -7,38 +7,134 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 import pickle
 from data_loader import get_labeled_data
 import time
-
-with open('svm_V1.pkl', 'rb') as f:
-    clf_gd = pickle.load(f)
-
-def feature_extractor(X):
-    timer_start = time.perf_counter()
-    X_extracted = []
-    for x in X:
-        # downsample image
-        dsf = 10  # down sampling factor
-        x_ds = cv2.resize(x, (x.shape[1] // dsf, x.shape[0] // dsf))
-
-        # binary classification
-        x_reshaped = x_ds.copy().reshape((-1, 3))
-        x_binary = clf_gd.predict(x_reshaped)  # ground detection classifier
-        X_extracted.append(x_binary)
-
-    timer_end = time.perf_counter()
-    timer_result = timer_end - timer_start
-    print(f"Extracting the features took {np.round(timer_result, 2)}s. That is {np.round(timer_result/len(X_extracted),2)}s per image.\n")
-    return X_extracted
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
 
 
-X, y = get_labeled_data(100, binary=True, balance=True)
-X = feature_extractor(X)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-clf_decision = svm.SVC()
-timer_start = time.perf_counter()
-clf_decision.fit(X_train, y_train)
-timer_end = time.perf_counter()
-print(f"The decision making SVM took {np.round(timer_end - timer_start, 2)}s to fit.")
+class DecisionModel:
+    def __init__(self):
+        self.clf_gd = None
+        self.clf_decision = None
+        self.dsf = 10
+        self.y_test = None
+        self.y_pred = None
+        self.construct()
 
-y_pred = clf_decision.predict(X_test)
-print(f"The accuracy score is {accuracy_score(y_test, y_pred)}.")
-print(f"The confusion matrix is \n {confusion_matrix(y_test, y_pred)}")
+    def construct(self):
+        with open('svm_V1.pkl', 'rb') as f:
+            self.clf_gd = pickle.load(f)
+
+    def feature_extractor(self, X, visualize=False, pred_dict=None):
+        timer_start = time.perf_counter()
+        X_extracted = []
+        for x in X:
+            # downsample image
+            ds_size = (x.shape[1] // self.dsf, x.shape[0] // self.dsf)
+            x_ds = cv2.resize(x, ds_size)
+
+            # binary classification
+            x_reshaped = x_ds.copy().reshape((-1, 3))
+            x_binary = self.clf_gd.predict(x_reshaped)  # ground detection classifier
+            X_extracted.append(x_binary)
+            if visualize:
+                x_visual_ds = x_ds
+                x_visual_gd = x_binary.reshape(tuple(reversed(ds_size)))
+                fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1)
+                ax0.imshow(np.rot90(x))
+                ax0.set_ylabel("Original")
+                ax0.set_yticklabels([])
+                ax0.set_xticklabels([])
+                ax1.imshow(np.rot90(x_visual_ds))
+                ax1.set_ylabel("Downsampled")
+                ax1.set_yticklabels([])
+                ax1.set_xticklabels([])
+                ax2.imshow(np.rot90(x_visual_gd))
+                ax2.set_ylabel("Ground detection")
+                ax2.set_yticklabels([])
+                ax2.set_xticklabels([])
+                if pred_dict:
+                    if pred_dict["label"] != pred_dict["pred"]:
+                        fig.suptitle("Label was " + str(pred_dict["label"]), color="red")
+                    else:
+                        fig.suptitle("Correctly predicted " + str(pred_dict["label"]), color="green")
+
+                plt.show()
+
+        timer_end = time.perf_counter()
+        timer_result = timer_end - timer_start
+        print(f"Extracting the features took {np.round(timer_result, 2)}s. That is {np.round(timer_result/len(X_extracted),2)}s per image.\n")
+
+        return X_extracted
+
+    def train(self, X_train, y_train):
+        X_train = self.feature_extractor(X_train)
+        self.clf_decision = svm.SVC(kernel='linear')
+        timer_start = time.perf_counter()
+        self.clf_decision.fit(X_train, y_train)
+        timer_end = time.perf_counter()
+        print(f"The decision making SVM took {np.round(timer_end - timer_start, 2)}s to fit.")
+
+    def predict(self, X_test, y_test, inspect=False):
+        X_test_ = self.feature_extractor(X_test)
+        self.y_pred = self.clf_decision.predict(X_test_)
+        conf_mat = confusion_matrix(y_test, self.y_pred)
+        acc_score = accuracy_score(y_test, self.y_pred)
+        print(f"The accuracy score is {acc_score}.")
+        print(f"The confusion matrix is \n {conf_mat}")
+        if inspect:
+            for i in range(len(y_test)):
+                pred_dict = {}
+                pred_dict["label"] = y_test[i]
+                pred_dict["pred"] = self.y_pred[i]
+                #X_test[i] = np.array([1, X_test[i]])
+                print(f"X_test[i] size: {type(X_test[i]), X_test[i].shape}")
+                self.feature_extractor([X_test[i]], visualize=True, pred_dict=pred_dict)
+
+
+
+    def run(self, inspect=False):
+        X, y = get_labeled_data(100, binary=True, balance=True)
+        X_train, X_test, y_train, self.y_test = train_test_split(X, y, test_size=0.2)
+        model.train(X_train, y_train)
+        model.predict(X_test, self.y_test, inspect=inspect)
+
+    def make_roc(self):
+        dsfs = np.arange(5, 50, 2)
+
+        fpr_list = []
+        tpr_list = []
+        roc_auc_list = []
+        for dsf in dsfs:
+            self.dsf = 10 #dsf
+            self.run()
+            conf_mat = confusion_matrix(self.y_test, self.y_pred)
+            tpr = conf_mat[0, 0] / np.sum(conf_mat[:, 0])
+            fpr = conf_mat[0, 1] / np.sum(conf_mat[:, 1])
+            fpr_list.append(fpr)
+            tpr_list.append(tpr)
+
+        # Plot the ROC curves
+        plt.figure() # figsize=(10, 6)
+
+
+        plt.plot(fpr_list, tpr_list)
+        plt.plot(np.array([0, 1]), np.array([0, 1]), "--")
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('ROC Curve')
+        plt.legend(loc='lower right')
+        plt.grid(True)
+        plt.show()
+        print(fpr_list)
+        print(tpr_list)
+
+
+
+
+model = DecisionModel()
+
+
+# debugging the visualization tool
+#X, y = get_labeled_data(1, binary=False, balance=False)
+model.run(inspect=True)
+#X_extracted = model.feature_extractor(X, visualize=True)
