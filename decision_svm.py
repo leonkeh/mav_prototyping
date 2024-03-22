@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import time
 from sklearn import svm
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, confusion_matrix
 import pickle
 from data_loader import get_labeled_data
@@ -15,7 +15,7 @@ class DecisionModel:
     def __init__(self):
         self.clf_gd = None
         self.clf_decision = None
-        self.dsf = 10
+        self.dsf = 30
         self.y_test = None
         self.y_pred = None
         self.construct()
@@ -24,7 +24,7 @@ class DecisionModel:
         with open('svm_V1.pkl', 'rb') as f:
             self.clf_gd = pickle.load(f)
 
-    def feature_extractor(self, X, visualize=False, pred_dict=None):
+    def feature_extractor(self, X, visualize=False, pred_dict={}):
         timer_start = time.perf_counter()
         X_extracted = []
         for x in X:
@@ -36,29 +36,32 @@ class DecisionModel:
             x_reshaped = x_ds.copy().reshape((-1, 3))
             x_binary = self.clf_gd.predict(x_reshaped)  # ground detection classifier
             X_extracted.append(x_binary)
-            if visualize:
-                x_visual_ds = x_ds
-                x_visual_gd = x_binary.reshape(tuple(reversed(ds_size)))
-                fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1)
-                ax0.imshow(np.rot90(x))
-                ax0.set_ylabel("Original")
-                ax0.set_yticklabels([])
-                ax0.set_xticklabels([])
-                ax1.imshow(np.rot90(x_visual_ds))
-                ax1.set_ylabel("Downsampled")
-                ax1.set_yticklabels([])
-                ax1.set_xticklabels([])
-                ax2.imshow(np.rot90(x_visual_gd))
-                ax2.set_ylabel("Ground detection")
-                ax2.set_yticklabels([])
-                ax2.set_xticklabels([])
-                if pred_dict:
-                    if pred_dict["label"] != pred_dict["pred"]:
-                        fig.suptitle("Label was " + str(pred_dict["label"]), color="red")
-                    else:
-                        fig.suptitle("Correctly predicted " + str(pred_dict["label"]), color="green")
-
-                plt.show()
+            if visualize and pred_dict:
+                if pred_dict["label"] != pred_dict["pred"]:
+                    x_visual_ds = x_ds
+                    x_visual_gd = x_binary.reshape(tuple(reversed(ds_size)))
+                    fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1)
+                    ax0.imshow(np.rot90(x))
+                    ax0.set_ylabel("Original")
+                    ax0.set_yticklabels([])
+                    ax0.set_xticklabels([])
+                    ax1.imshow(np.rot90(x_visual_ds))
+                    ax1.set_ylabel("Downsampled")
+                    ax1.set_yticklabels([])
+                    ax1.set_xticklabels([])
+                    ax2.imshow(np.rot90(x_visual_gd))
+                    ax2.set_ylabel("Ground detection")
+                    ax2.set_yticklabels([])
+                    ax2.set_xticklabels([])
+                    label2verbose = {0: "turning", 1: "go straight"}
+                    if pred_dict:
+                        if pred_dict["label"] != pred_dict["pred"]:
+                            fig.suptitle("Label was " + label2verbose[pred_dict["label"]] + " predicted "+ label2verbose[pred_dict["pred"]], color="red")
+                        else:
+                            fig.suptitle("Correctly predicted " + label2verbose[pred_dict["label"]], color="green")
+                    plt.tight_layout()
+                    plt.savefig("output/" + str(time.time()) + ".png", bbox_inches='tight')
+                    plt.show()
 
         timer_end = time.perf_counter()
         timer_result = timer_end - timer_start
@@ -86,17 +89,27 @@ class DecisionModel:
                 pred_dict = {}
                 pred_dict["label"] = y_test[i]
                 pred_dict["pred"] = self.y_pred[i]
-                #X_test[i] = np.array([1, X_test[i]])
-                print(f"X_test[i] size: {type(X_test[i]), X_test[i].shape}")
                 self.feature_extractor([X_test[i]], visualize=True, pred_dict=pred_dict)
 
 
 
     def run(self, inspect=False):
-        X, y = get_labeled_data(100, binary=True, balance=True)
+        X, y = get_labeled_data(583, directory="data_labelled_big/labelled_week6", binary=True, balance=True)
         X_train, X_test, y_train, self.y_test = train_test_split(X, y, test_size=0.2)
         model.train(X_train, y_train)
         model.predict(X_test, self.y_test, inspect=inspect)
+
+    def run_cross_val(self):
+        X, y = get_labeled_data(583, directory="data_labelled_big/labelled_week6", binary=True, balance=True)
+        X_extracted = self.feature_extractor(X)
+        self.clf_decision = svm.SVC(kernel='linear')
+        scores = cross_val_score(self.clf_decision, X_extracted, y, cv=20)
+        print("%0.2f accuracy with a standard deviation of %0.2f, at worst %0.2f" % (scores.mean(), scores.std(), np.min(scores)))
+        plt.hist(scores)
+        plt.xlabel("Accuracy score")
+        plt.ylabel("Number of splits")
+        plt.title("Cross validation performance")
+        plt.show()
 
     def make_roc(self):
         dsfs = np.arange(5, 50, 2)
@@ -128,13 +141,22 @@ class DecisionModel:
         print(fpr_list)
         print(tpr_list)
 
+    def export(self):
+        with open('decision_svm.pkl', 'wb') as f:
+            pickle.dump(self.clf_decision, f)
+            print("SVM parameters saved successfully in .pkl file")
+        coefficients = self.clf_decision.coef_
+        intercepts = self.clf_decision.intercept_
+        with open("decision_svm_parameters.txt", "w") as f:
+            for coef in coefficients:
+                f.write(' '.join(map(str, coef)) + '\n')
+            f.write(' '.join(map(str, intercepts)) + '\n')
+        print("SVM parameters saved successfully in .txt file")
+
 
 
 
 model = DecisionModel()
-
-
-# debugging the visualization tool
-#X, y = get_labeled_data(1, binary=False, balance=False)
+#model.run_cross_val()
 model.run(inspect=True)
-#X_extracted = model.feature_extractor(X, visualize=True)
+model.export()
