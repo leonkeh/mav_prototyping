@@ -15,7 +15,7 @@ class DecisionModel:
     def __init__(self):
         self.clf_gd = None
         self.clf_decision = None
-        self.dsf = 30
+        self.dsf = 20
         self.y_test = None
         self.y_pred = None
         self.construct()
@@ -93,7 +93,7 @@ class DecisionModel:
 
 
 
-    def run(self, inspect=False):
+    def run(self, inspect=False, X=None, y=None):
         X, y = get_labeled_data(583, directory="data_labelled_big/labelled_week6", binary=True, balance=True)
         X_train, X_test, y_train, self.y_test = train_test_split(X, y, test_size=0.2)
         model.train(X_train, y_train)
@@ -113,13 +113,16 @@ class DecisionModel:
 
     def make_roc(self):
         dsfs = np.arange(5, 50, 2)
+        X, y = get_labeled_data(583, directory="data_labelled_big/labelled_week6", binary=True, balance=True)
+        X_train, X_test, y_train, self.y_test = train_test_split(X, y, test_size=0.2)
 
         fpr_list = []
         tpr_list = []
         roc_auc_list = []
         for dsf in dsfs:
-            self.dsf = 10 #dsf
-            self.run()
+            self.dsf = dsf
+            model.train(X_train, y_train)
+            model.predict(X_test, self.y_test)
             conf_mat = confusion_matrix(self.y_test, self.y_pred)
             tpr = conf_mat[0, 0] / np.sum(conf_mat[:, 0])
             fpr = conf_mat[0, 1] / np.sum(conf_mat[:, 1])
@@ -142,16 +145,30 @@ class DecisionModel:
         print(tpr_list)
 
     def export(self):
-        with open('decision_svm.pkl', 'wb') as f:
+        with open('saved_svms/decision_svm.pkl', 'wb') as f:
             pickle.dump(self.clf_decision, f)
-            print("SVM parameters saved successfully in .pkl file")
+            print("decision_svm parameters saved in .pkl file")
         coefficients = self.clf_decision.coef_
         intercepts = self.clf_decision.intercept_
-        with open("decision_svm_parameters.txt", "w") as f:
+        print(f"The decision svm has {coefficients.shape, intercepts.shape} parameters.")
+        with open("saved_svms/decision_svm_parameters_dsf" + str(self.dsf) + ".txt", "w") as f:
             for coef in coefficients:
                 f.write(' '.join(map(str, coef)) + '\n')
             f.write(' '.join(map(str, intercepts)) + '\n')
-        print("SVM parameters saved successfully in .txt file")
+        print("decision_svm parameters saved in .txt file")
+
+        # save ground detection
+        # with open('saved_svms/ground_detection_svm.pkl', 'wb') as f:
+        #     pickle.dump(self.clf_gd, f)
+        #     print("decision_svm parameters saved in .pkl file")
+        # coefficients = self.clf_gd.coef_
+        # intercepts = self.clf_gd.intercept_
+        # print(f"The ground detection svm has {coefficients.shape, intercepts.shape} parameters.")
+        # with open("saved_svms/ground_detection_svm_parameters.txt", "w") as f:
+        #     for coef in coefficients:
+        #         f.write(' '.join(map(str, coef)) + '\n')
+        #     f.write(' '.join(map(str, intercepts)) + '\n')
+        # print("decision_svm parameters saved in .txt file")
 
 
 
@@ -159,4 +176,5 @@ class DecisionModel:
 model = DecisionModel()
 #model.run_cross_val()
 model.run(inspect=True)
+#model.make_roc()
 model.export()

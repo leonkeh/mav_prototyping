@@ -18,8 +18,11 @@ def get_labeled_data(n, directory="labeled_data", binary=False, balance=False):
         if binary:
             if img[0] in ['l', 'r']:
                 y.append(0)
-            elif img[0] == 's':
+            elif img[0] in ['s', '_']:
                 y.append(1)
+            else:
+                print(img[0])
+                raise ValueError()
         else:
             if img[0] == 'l':
                 y.append(0)
