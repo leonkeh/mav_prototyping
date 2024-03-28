@@ -15,7 +15,7 @@ class DecisionModel:
     def __init__(self):
         self.clf_gd = None
         self.clf_decision = None
-        self.dsf = 20
+        self.dsf = 30
         self.y_test = None
         self.y_pred = None
         self.construct()
@@ -37,7 +37,7 @@ class DecisionModel:
             x_binary = self.clf_gd.predict(x_reshaped)  # ground detection classifier
             X_extracted.append(x_binary)
             if visualize and pred_dict:
-                if pred_dict["label"] != pred_dict["pred"]:
+                if X_extracted: #pred_dict["label"] != pred_dict["pred"]:
                     x_visual_ds = x_ds
                     x_visual_gd = x_binary.reshape(tuple(reversed(ds_size)))
                     fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1)
