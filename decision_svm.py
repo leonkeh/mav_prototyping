@@ -41,11 +41,11 @@ class DecisionModel:
                     x_visual_ds = x_ds
                     x_visual_gd = x_binary.reshape(tuple(reversed(ds_size)))
                     fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1)
-                    ax0.imshow(np.rot90(x))
+                    ax0.imshow(np.rot90(cv2.cvtColor(x, cv2.COLOR_YUV2RGB)))
                     ax0.set_ylabel("Original")
                     ax0.set_yticklabels([])
                     ax0.set_xticklabels([])
-                    ax1.imshow(np.rot90(x_visual_ds))
+                    ax1.imshow(np.rot90(cv2.cvtColor(x_visual_ds, cv2.COLOR_YUV2RGB)))
                     ax1.set_ylabel("Downsampled")
                     ax1.set_yticklabels([])
                     ax1.set_xticklabels([])
