@@ -1,8 +1,8 @@
 # mav_prototyping
-This repository contains the Support Vector Machine (SVM) approach prototypes for both ground detection and deciding on where to go.
+This repository contains the Support Vector Machine (SVM) approach prototypes for both ground detection and deciding on where to go for the competition of the course Autonomous Flight for Micro Air Vehicles. This competition required each team to maximize the flown distance with a quadrotor, while avoiding obstacles - the caviat: only monocular vision is available for navigation.
 
 ## Ground classification
-Please run the the floor_detection.py file. The features will be extracted, the SVM fitted, and some example filtered images will be displayed. The SVM parameters are saved to "svm_V1.pkl".
+Please run the the floor_detection.py file. The features will be extracted, the SVM fitted, and some example filtered images will be displayed. The SVM parameters are saved to "svm_V1.pkl". It performs in the following way:
 
 ## Decision classification
 Please run decision_svm.py. The decision SVM will be trained and some examples from the test set will be displayed. Note, that you can change some booleans:
